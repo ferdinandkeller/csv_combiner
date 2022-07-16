@@ -11,6 +11,7 @@
   <input id="selector1" type="text">
   <input id="file2" type="file" />
   <input id="selector2" type="text">
+  <input id="no_repeat" type="text">
   <button id="combine">combine files</button>
 </body>
 <script src="papaparse.min.js"></script>
@@ -20,6 +21,7 @@ let selector1_div = document.querySelector('#selector1')
 let file2_div = document.querySelector('#file2')
 let selector2_div = document.querySelector('#selector2')
 let combine_btn = document.querySelector('#combine')
+let no_repeat_div = document.querySelector('#no_repeat')
 
 function read_file (file) {
   return new Promise((resolve, reject) => {
@@ -37,6 +39,7 @@ combine_btn.addEventListener('click', async () => {
   let selector1 = selector1_div.value
   let file2 = await read_file(file2_div.files[0])
   let selector2 = selector2_div.value
+  let norepeat = no_repeat_div.value.split(',')
 
   // parse
   let data1 = null
@@ -80,17 +83,28 @@ combine_btn.addEventListener('click', async () => {
   // output
   data1[0].splice(index_selector_1, 1)
   data2[0].splice(index_selector_2, 1)
+  no_repeat_fields_indices = []
+  for (let no_repeat_field of norepeat) {
+    no_repeat_fields_indices.push(data1[0].indexOf(no_repeat_field))
+  }
   let headers = [ selector1 ]
   headers = headers.concat(data1[0])
   headers = headers.concat(data2[0])
   let output = []
   for (let key in lines) {
     for (let data1_entry of lines[key][0]) {
+      let file1_row = 0
       for (let data2_entry of lines[key][1]) {
+        if (file1_row > 0) {
+          for (let no_repeat_fields_index of no_repeat_fields_indices) {
+            data1_entry[no_repeat_fields_index] = ''
+          }
+        }
         let line = [key]
         line = line.concat(data1_entry)
         line = line.concat(data2_entry)
         output.push(line)
+        file1_row++
       }
     }
   }
