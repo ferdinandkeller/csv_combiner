@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSV combiner</title>
+</head>
+<body>
+  <input id="file1" type="file" />
+  <input id="selector1" type="text">
+  <input id="file2" type="file" />
+  <input id="selector2" type="text">
+  <button id="combine">combine files</button>
+</body>
+<script src="papaparse.min.js"></script>
+<script>
+let file1_div = document.querySelector('#file1')
+let selector1_div = document.querySelector('#selector1')
+let file2_div = document.querySelector('#file2')
+let selector2_div = document.querySelector('#selector2')
+let combine_btn = document.querySelector('#combine')
+
+function read_file (file) {
+  return new Promise((resolve, reject) => {
+    let file_reader = new FileReader()
+    file_reader.onload = () => {
+      resolve(file_reader.result)
+    }
+    file_reader.readAsText(file)
+  })
+}
+
+combine_btn.addEventListener('click', async () => {
+  // load data
+  let file1 = await read_file(file1_div.files[0])
+  let selector1 = selector1_div.value
+  let file2 = await read_file(file2_div.files[0])
+  let selector2 = selector2_div.value
+
+  // parse
+  let data1 = null
+  Papa.parse(file1, {
+    complete: (results) => {
+      data1 = results.data
+    }
+  })
+  if (data1[data1.length - 1].length === 1) {
+    data1.pop()
+  }
+  let data2 = null
+  Papa.parse(file2, {
+    complete: (results) => {
+      data2 = results.data
+    }
+  })
+  if (data2[data2.length - 1].length === 1) {
+    data2.pop()
+  }
+
+  // merge
+  let index_selector_1 = data1[0].indexOf(selector1)
+  let index_selector_2 = data2[0].indexOf(selector2)
+  let lines = {}
+  for (let i=1; i<data1.length; i++) {
+    let line = data1[i]
+    let key = line[index_selector_1]
+    if (!lines[key]) lines[key] = [[], []]
+    line.splice(index_selector_1, 1)
+    lines[key][0].push(line)
+  }
+  for (let i=1; i<data2.length; i++) {
+    let line = data2[i]
+    let key = line[index_selector_2]
+    if (!lines[key]) lines[key] = [[], []]
+    line.splice(index_selector_2, 1)
+    lines[key][1].push(line)
+  }
+
+  // output
+  data1[0].splice(index_selector_1, 1)
+  data2[0].splice(index_selector_2, 1)
+  let headers = [ selector1 ]
+  headers = headers.concat(data1[0])
+  headers = headers.concat(data2[0])
+  let output = []
+  for (let key in lines) {
+    for (let data1_entry of lines[key][0]) {
+      for (let data2_entry of lines[key][1]) {
+        let line = [key]
+        line = line.concat(data1_entry)
+        line = line.concat(data2_entry)
+        output.push(line)
+      }
+    }
+  }
+
+  // show results
+  let output_file = new Blob([Papa.unparse({
+    fields: headers,
+    data: output
+  })], {type: 'text/csv'})
+
+  let link = document.createElement('a')
+  link.download = 'combined.csv'
+  link.href = window.URL.createObjectURL(output_file)
+  document.body.appendChild(link)
+  link.click()
+  setTimeout(() => {
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(link.href)
+  }, 100)
+})
+</script>
+</html>
